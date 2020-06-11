@@ -13,6 +13,8 @@ module modFEPIC
   integer,parameter::BC_PHI_DEFAULT=0 !< default BC: Neumann with zero normal phi gradient
   integer,parameter::BC_PHI_DIRICHLET=1 !< Dirichlet BC with given potential
   
+  integer::iProc,nProc,ierr !< mpi variables
+  
   type(PICGrid)::grid !< the grid
   type(condTab)::ebc !< electric field boundary conditions
   type(multiFront)::PoissonPhi !< FEM Poisson equation for phi
@@ -20,6 +22,8 @@ module modFEPIC
   double precision,allocatable::phi(:) !< electric potential [V]
   double precision,allocatable::ef(:,:) !< electric field strength [V/m]
   double precision,allocatable::rhsPhi(:) !< RHS of the phi equation [C], and [V] (Dirichlet nodes)
+  double precision,allocatable::rhsPhiDi(:) !< RHS of the phi equation, only Dirichlet nodes [V]
+  double precision,allocatable::rhsPhiLocal(:) !< RHS of the phi equation, local version [C]
   double precision,allocatable::nVol(:) !< FEM nodal volume
   integer,allocatable::iEBC(:) !< indexes electric field boundary conditions
   logical,allocatable::isDirichlet(:) !< whether a point is a Dirichlet point
@@ -42,6 +46,8 @@ contains
     ! work space and initial state
     allocate(phi(grid%nN))
     allocate(rhsPhi(grid%nN))
+    allocate(rhsPhiDi(grid%nN))
+    allocate(rhsPhiLocal(grid%nN))
     allocate(nVol(grid%nN))
     allocate(isDirichlet(grid%nN))
     allocate(ef(3,grid%nN))
@@ -50,7 +56,7 @@ contains
       call readCondTab(FID,ebc)
     close(FID)
     call mapCondTab(grid,ebc,iEBC)
-    rhsPhi(:)=0d0
+    rhsPhiDi(:)=0d0
     isDirichlet(:)=.false.
     do i=grid%nC+1,grid%nE
       if(iEBC(i)>0)then
@@ -58,17 +64,12 @@ contains
         case(BC_PHI_DIRICHLET) !< Dirichlet with given phi
           do j=1,grid%nNE(i)
             isDirichlet(grid%iNE(j,i))=.true.
-            rhsPhi(grid%iNE(j,i))=ebc%p(1,iEBC(i))
+            rhsPhiDi(grid%iNE(j,i))=ebc%p(1,iEBC(i))
           end do
         case default
         end select
       end if
     end do
-    ! initialize FEM solver
-    call PoissonPhi%init(grid%nN,size(grid%iNE,1)**2*grid%nE)
-    call findLaplacian(grid,PoissonPhi,isDirichlet)
-    call PoissonPhi%fact()
-    call findVolSrc(grid,nVol)
     
   end subroutine
   
