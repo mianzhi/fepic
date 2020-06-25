@@ -28,6 +28,20 @@ contains
     grad(:,:)=0d0
     do i=1,grid%nC
       select case(grid%sE(i))
+      case(TET)
+        gradQP(:,:)=0d0
+        do j=1,TET_N
+          do l=1,size(TET_QW)
+            gradQP(:,l)=gradQP(:,l)+matmul(grid%invJ(:,:,l,i),TET_GRAD_QP(:,j,l))&
+            &                       *phi(grid%iNE(j,i))
+          end do
+        end do
+        do j=1,TET_N
+          do l=1,size(TET_QW)
+            grad(:,grid%iNE(j,i))=grad(:,grid%iNE(j,i))+gradQP(:,l)*TET_SHAPE_QP(j,l)&
+            &                                           *grid%detJ(l,i)*TET_QW(l)
+          end do
+        end do
       case(TET10)
         gradQP(:,:)=0d0
         do j=1,TET10_N

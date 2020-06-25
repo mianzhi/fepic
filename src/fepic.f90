@@ -39,7 +39,7 @@ program fepic
   !do l=1,1
   !  ! push particles and deposit again
   !  call mpi_reduce(rhsPhiLocal,rhsPhi,size(rhsPhi),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,&
-  !&               ierr)
+  !  &               ierr)
   !  ! solve field at process 0
   !  if(iProc==0)then
   !    rhsPhi=merge(rhsPhiDi,rhsPhi,isDirichlet)

@@ -2,6 +2,7 @@
 
 !> environment for fepic
 module modFEPIC
+  use modParticle
   use modPICGrid
   use modCondition
   use modSparse
@@ -15,6 +16,7 @@ module modFEPIC
   
   integer::iProc,nProc,ierr !< mpi variables
   
+  type(ptcls),allocatable::p(:) !< particles of each species
   type(PICGrid)::grid !< the grid
   type(condTab)::ebc !< electric field boundary conditions
   type(multiFront)::PoissonPhi !< FEM Poisson equation for phi

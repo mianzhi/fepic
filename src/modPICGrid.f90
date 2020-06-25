@@ -2,11 +2,11 @@
 
 !> FEM PIC grid
 module modPICGrid
-  use modPolyFeGrid
+  use modPolyEdgeFeGrid
   private
   
-  !> FEM grid with auxiliary features for PIC
-  type,extends(polyFeGrid),public::PICGrid
+  !> edge-based (and nodal) FEM grid with auxiliary features for PIC
+  type,extends(polyEdgeFeGrid),public::PICGrid
   end type
   
 end module

@@ -1,6 +1,7 @@
 SET(fepic_src
   fepic.f90
   modFEPIC.f90
+  modParticle.f90
   modPICGrid.f90
   modUglyFEM.f90
 )
