@@ -65,8 +65,28 @@ contains
   end subroutine
   
   !> inverse iso-parametric map
-  subroutine x2xx()
+  subroutine x2xx(grid,iC,x,xx,isInside)
+    use modPICGrid
+    use modPolyGrid
     use modSMQ
+    class(PICGrid),intent(inout)::grid !< the grid
+    integer,intent(in)::iC !< cell index
+    double precision,intent(in)::x(DIMS) !< global location to be mapped [m]
+    double precision,intent(inout)::xx(DIMS) !< location in the reference element of cell iC
+    logical,optional,intent(inout)::isInside !< whether x is inside cell iC
+    
+    call grid%up()
+    select case(grid%sE(iC))
+    case(TET)
+      xx=matmul(transpose(grid%invJ(:,:,1,iC)),x-grid%pN(:,grid%iNE(1,iC)))
+      ! matrix identity: inv(A^T)=inv(A)^T
+      if(present(isInside))then
+        isInside=xx(1)>=0d0.and.xx(2)>=0d0.and.xx(3)>=0d0.and.xx(1)+xx(2)+xx(3)<=1d0
+      end if
+    case(TET10)
+      ! TODO Newton iteration: matmul(grid%pN(:,grid%iNE(1:TET10_N,iC)),shapeTet10(xx))-x==[0,0,0]
+    case default
+    end select
   end subroutine
   
 end module
