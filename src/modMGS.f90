@@ -71,25 +71,47 @@ contains
   !> gather grid nodal scalar f at reference coordinate xx of cell iC
   pure subroutine gatherScal(grid,f,iC,xx,rst)
     use modPICGrid
+    use modPolyGrid
+    use modSMQ
     class(PICGrid),intent(inout)::grid !< the grid
     double precision,intent(in)::f(grid%nN) !< the nodal scalar field
     integer,intent(in)::iC !< cell index
     double precision,intent(in)::xx(DIMS) !< location at reference cell of iC
     double precision,intent(inout)::rst !< the local value of f
+    integer,parameter::MAX_N=30 !< maximum number of node per element
+    double precision::s(MAX_N)
     
-    
+    s(:)=0d0
+    rst=0d0
+    select case(grid%sE(iC))
+    case(TET)
+      s(1:grid%nNE(iC))=shapeTet(xx)
+      rst=dot_product(f(grid%iNE(1:grid%nNE(iC),iC)),s(1:grid%nNE(iC)))
+    case(TET10)
+      s(1:grid%nNE(iC))=shapeTet10(xx)
+      rst=dot_product(f(grid%iNE(1:grid%nNE(iC),iC)),s(1:grid%nNE(iC)))
+    case default
+    end select
   end subroutine
   
   !> scatter extensive quantity ap at reference coordinate xx of cell iC onto nodal grid value a
   pure subroutine scatterScal(grid,ap,iC,xx,a)
     use modPICGrid
+    use modPolyGrid
+    use modSMQ
     class(PICGrid),intent(inout)::grid !< the grid
     double precision,intent(in)::ap !< the point quantity
     integer,intent(in)::iC !< cell index
     double precision,intent(in)::xx(DIMS) !< location at reference cell of iC
     double precision,intent(inout)::a(grid%nN) !< the nodal grid value
     
-    
+    select case(grid%sE(iC))
+    case(TET)
+      a(grid%iNE(1:grid%nNE(iC),iC))=a(grid%iNE(1:grid%nNE(iC),iC))+ap*shapeTet(xx)
+    case(TET10)
+      a(grid%iNE(1:grid%nNE(iC),iC))=a(grid%iNE(1:grid%nNE(iC),iC))+ap*shapeTet10(xx)
+    case default
+    end select
   end subroutine
   
 end module
