@@ -4,6 +4,7 @@ SET(fepic_src
   modParticle.f90
   modPICGrid.f90
   modUglyFEM.f90
+  modMGS.f90
 )
 
 ADD_EXECUTABLE(fepic ${fepic_src})

@@ -65,7 +65,8 @@ contains
   end subroutine
   
   !> inverse iso-parametric map
-  subroutine x2xx(grid,iC,x,xx,isInside)
+  !>   NOTE: assuming grid is updated, i.e. called grid%up(), before calling this subroutine
+  pure subroutine x2xx(grid,iC,x,xx,isInside)
     use modPICGrid
     use modPolyGrid
     use modSMQ
@@ -75,7 +76,6 @@ contains
     double precision,intent(inout)::xx(DIMS) !< location in the reference element of cell iC
     logical,optional,intent(inout)::isInside !< whether x is inside cell iC
     
-    call grid%up()
     select case(grid%sE(iC))
     case(TET)
       xx=matmul(transpose(grid%invJ(:,:,1,iC)),x-grid%pN(:,grid%iNE(1,iC)))
