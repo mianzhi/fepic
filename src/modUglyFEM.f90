@@ -75,13 +75,14 @@ contains
     double precision,intent(in)::x(DIMS) !< global location to be mapped [m]
     double precision,intent(inout)::xx(DIMS) !< location in the reference element of cell iC
     logical,optional,intent(inout)::isInside !< whether x is inside cell iC
+    double precision,parameter::TOL=1d-6 !< tolerance in the reference coordinate
     
     select case(grid%sE(iC))
     case(TET)
       xx=matmul(transpose(grid%invJ(:,:,1,iC)),x-grid%pN(:,grid%iNE(1,iC)))
       ! matrix identity: inv(A^T)=inv(A)^T
       if(present(isInside))then
-        isInside=xx(1)>=0d0.and.xx(2)>=0d0.and.xx(3)>=0d0.and.xx(1)+xx(2)+xx(3)<=1d0
+        isInside=xx(1)>=-TOL.and.xx(2)>=-TOL.and.xx(3)>=-TOL.and.xx(1)+xx(2)+xx(3)<=1d0+TOL
       end if
     case(TET10)
       ! TODO Newton iteration: matmul(grid%pN(:,grid%iNE(1:TET10_N,iC)),shapeTet10(xx))-x==[0,0,0]

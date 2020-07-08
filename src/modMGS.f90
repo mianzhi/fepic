@@ -8,7 +8,7 @@ module modMGS
   
   !> generic match
   interface match
-    module procedure::matchDefault
+    module procedure::matchSimple
   end interface
   
   !> generic gather
@@ -26,7 +26,7 @@ contains
   !> match (particle) location x with cell iC in grid
   !>   iC=0 at input: test all cells, otherwise test only neighbors of iC
   !>   iC=0 at output: no matching cell found
-  pure subroutine matchDefault(grid,x,iC,xx)
+  pure subroutine matchSimple(grid,x,iC,xx)
     use modPICGrid
     use modUglyFEM
     class(PICGrid),intent(inout)::grid !< the grid
