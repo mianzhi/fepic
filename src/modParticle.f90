@@ -21,6 +21,8 @@ module modParticle
     procedure,public::init=>initPtcls
     procedure,public::clear=>clearPtcls
     procedure,public::expand=>expandPtcls
+    procedure,public::add=>addPtcls
+    procedure,public::rm=>rmPtcls
     final::purgePtcls
   end type
   
@@ -64,7 +66,7 @@ contains
   end subroutine
   
   !> expand the storage of this ptcls
-  subroutine expandPtcls(this,sz)
+  pure subroutine expandPtcls(this,sz)
     class(ptcls),intent(inout)::this !< this ptcls
     integer,intent(in)::sz !< the new storage size
     double precision,allocatable::tmpD1(:,:),tmpD2(:)
@@ -90,6 +92,50 @@ contains
     allocate(this%iC,source=tmpI1)
     this%sz=sz
     deallocate(tmpD1,tmpD2,tmpI1)
+  end subroutine
+  
+  !> add a particle to the back of this ptcls
+  pure subroutine addPtcls(this,x,v,w,iC,xx)
+    class(ptcls),intent(inout)::this !< this ptcls
+    double precision,intent(in)::x(DIMS) !< location [m]
+    double precision,intent(in)::v(DIMS) !< velocity [m/s]
+    double precision,intent(in)::w !< weight
+    integer,intent(in),optional::iC !< cell index
+    double precision,intent(in),optional::xx(DIMS) !< location in reference element
+    real,parameter::EXPAND_FACT=1.5 !< expansion factor
+    
+    if(this%n==this%sz) call this%expand(int(this%sz*EXPAND_FACT))
+    this%n=this%n+1
+    m=this%n
+    this%x(:,m)=x(:)
+    this%v(:,m)=v(:)
+    this%w(m)=w
+    if(present(iC))then
+      this%iC(m)=iC
+      if(present(xx))then
+        this%xx(:,m)=xx(:)
+      else
+        this%xx(:,m)=[0d0,0d0,0d0]
+      end if
+    else
+      this%iC(m)=0
+    end if
+  end subroutine
+  
+  !> remove a particle from this ptcls, and move the last particle to the empty space
+  pure subroutine rmPtcls(this,m)
+    class(ptcls),intent(inout)::this !< this ptcls
+    integer,intent(in)::m !< particle to be removed
+    
+    n=this%n
+    if(m/=n)then
+      this%x(:,m)=this%x(:,n)
+      this%v(:,m)=this%v(:,n)
+      this%w(m)=this%w(n)
+      this%iC(m)=this%iC(n)
+      this%xx(:,m)=this%xx(:,n)
+    end if
+    this%n=n-1
   end subroutine
   
   !> purge this ptcls
