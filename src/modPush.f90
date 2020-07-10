@@ -41,6 +41,9 @@ contains
     
     doRewind=(job==LF_REWIND.or.job==LF_REWIND_SYNC)
     doSync=(job==LF_SYNC.or.job==LF_REWIND_SYNC)
+    if(p%iC(k)==0)then
+      call match(grid,p%x(:,k),p%iC(k),p%xx(:,k))
+    end if
     call gather(grid,phi,p%iC(k),p%xx(:,k),a)
     a=-a*p%q/p%m
     if(doRewind)then
