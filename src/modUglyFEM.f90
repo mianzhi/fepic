@@ -70,7 +70,7 @@ contains
     use modPICGrid
     use modPolyGrid
     use modSMQ
-    class(PICGrid),intent(inout)::grid !< the grid
+    class(PICGrid),intent(in)::grid !< the grid
     integer,intent(in)::iC !< cell index
     double precision,intent(in)::x(DIMS) !< global location to be mapped [m]
     double precision,intent(inout)::xx(DIMS) !< location in the reference element of cell iC

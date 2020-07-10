@@ -5,6 +5,7 @@ SET(fepic_src
   modPICGrid.f90
   modUglyFEM.f90
   modMGS.f90
+  modPush.f90
 )
 
 ADD_EXECUTABLE(fepic ${fepic_src})

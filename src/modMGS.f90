@@ -14,6 +14,7 @@ module modMGS
   !> generic gather
   interface gather
     module procedure::gatherScal
+    module procedure::gatherGradPhi
   end interface
   
   !> generic scatter
@@ -29,7 +30,7 @@ contains
   pure subroutine matchSimple(grid,x,iC,xx)
     use modPICGrid
     use modUglyFEM
-    class(PICGrid),intent(inout)::grid !< the grid
+    class(PICGrid),intent(in)::grid !< the grid
     double precision,intent(in)::x(DIMS) !< global location [m]
     integer,intent(inout)::iC !< initial cell at input, matched cell at output
     double precision,intent(inout),optional::xx(DIMS) !< location at reference cell of iC
@@ -73,7 +74,7 @@ contains
     use modPICGrid
     use modPolyGrid
     use modSMQ
-    class(PICGrid),intent(inout)::grid !< the grid
+    class(PICGrid),intent(in)::grid !< the grid
     double precision,intent(in)::f(grid%nN) !< the nodal scalar field
     integer,intent(in)::iC !< cell index
     double precision,intent(in)::xx(DIMS) !< location at reference cell of iC
@@ -94,12 +95,34 @@ contains
     end select
   end subroutine
   
+  !> gather gradient of a nodal potential phi at reference coordinate xx of cell iC
+  pure subroutine gatherGradPhi(grid,phi,iC,xx,rst)
+    use modPICGrid
+    use modPolyGrid
+    use modSMQ
+    class(PICGrid),intent(in)::grid !< the grid
+    double precision,intent(in)::phi(grid%nN) !< the nodal potential field
+    integer,intent(in)::iC !< cell index
+    double precision,intent(in)::xx(DIMS) !< location at reference cell of iC
+    double precision,intent(inout)::rst(DIMS) !< the local grad(phi)
+    
+    rst(:)=0d0
+    select case(grid%sE(iC))
+    case(TET)
+      rst=matmul(grid%invJ(:,:,1,iC),matmul(gradShapeTet(xx),phi(grid%iNE(1:grid%nNE(iC),iC))))
+      ! making use of the fact that invJ is constant in the TET
+    case(TET10)
+      ! TODO
+    case default
+    end select
+  end subroutine
+  
   !> scatter extensive quantity ap at reference coordinate xx of cell iC onto nodal grid value a
   pure subroutine scatterScal(grid,ap,iC,xx,a)
     use modPICGrid
     use modPolyGrid
     use modSMQ
-    class(PICGrid),intent(inout)::grid !< the grid
+    class(PICGrid),intent(in)::grid !< the grid
     double precision,intent(in)::ap !< the point quantity
     integer,intent(in)::iC !< cell index
     double precision,intent(in)::xx(DIMS) !< location at reference cell of iC
