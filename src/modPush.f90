@@ -27,18 +27,20 @@ contains
     use modPICGrid
     use modParticle
     use modMGS
+    use modImpact
     class(PICGrid),intent(in)::grid !< the grid
     class(ptcls),intent(inout)::p !< the particle collection
     integer,intent(in)::k !< the particle to be pushed
     double precision,intent(inout)::t !< time left [s]
     double precision,intent(in)::phi(grid%nN) !< the nodal electric potential [V]
-    integer,intent(inout)::f !< the facet of impact
+    integer,intent(out)::f !< the facet of impact
     integer,intent(in)::job !< rewind and synchronize
     integer,intent(out)::info !< returning status
     logical::doRewind,doSync
-    double precision::x(DIMS),xx(DIMS),v(DIMS),a(DIMS)
+    double precision::x(DIMS),xx(DIMS),v(DIMS),a(DIMS),h
     integer::iC
     
+    f=0
     doRewind=(job==LF_REWIND.or.job==LF_REWIND_SYNC)
     doSync=(job==LF_SYNC.or.job==LF_REWIND_SYNC)
     if(p%iC(k)==0)then
@@ -66,7 +68,21 @@ contains
       end if
       info=PUSH_DONE
     else ! push ended out of the neighborhood
-      info=PUSH_LOST
+      call testImpact(grid,p,k,x,f,h)
+      if(f>0)then ! impact detected within the neighborhood
+        info=PUSH_IMPACT
+        call match(grid,x,iC,xx)
+        p%x(:,k)=x
+        p%v(:,k)=v
+        p%iC(k)=iC
+        p%xx(:,k)=xx
+        t=(1d0-h)*t
+        if(iC==0)then
+          info=PUSH_LOST
+        end if
+      else ! impact not detected
+        info=PUSH_LOST
+      end if
     end if
   end subroutine
   
