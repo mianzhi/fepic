@@ -11,15 +11,23 @@ module modFEPIC
   
   integer,parameter::DIMS=3 !< three dimensions
   
-  integer,parameter::BC_PHI_DEFAULT=0 !< default BC: Neumann with zero normal phi gradient
+  double precision,parameter::AMU=1.6605390666050d-27 !< atomic mass unit (Dalton) [kg]
+  double precision,parameter::QE=1.602176634d-19 !< elementary charge [C]
+  
+  integer,parameter::BC_PHI_DEFAULT=0 !< default phi BC: Neumann with zero normal phi gradient
   integer,parameter::BC_PHI_DIRICHLET=1 !< Dirichlet BC with given potential
+  
+  integer,parameter::BC_PTCL_DEFAULT=0 !< default particle BC: removed upon impact
   
   integer::iProc,nProc,ierr !< mpi variables
   
   type(ptcls),allocatable::p(:) !< particles of each species
   type(PICGrid)::grid !< the grid
-  type(condTab)::ebc !< electric field boundary conditions
+  type(condTab)::phibc !< electric field boundary conditions
+  type(condTab)::ptclbc !< particle boundary conditions
   type(multiFront)::PoissonPhi !< FEM Poisson equation for phi
+  
+  integer::nSp !< number of particle species
   
   double precision,allocatable::phi(:) !< electric potential [V]
   double precision,allocatable::ef(:,:) !< electric field strength [V/m]
@@ -27,7 +35,8 @@ module modFEPIC
   double precision,allocatable::rhsPhiDi(:) !< RHS of the phi equation, only Dirichlet nodes [V]
   double precision,allocatable::rhsPhiLocal(:) !< RHS of the phi equation, local version [C]
   double precision,allocatable::nVol(:) !< FEM nodal volume
-  integer,allocatable::iEBC(:) !< indexes electric field boundary conditions
+  integer,allocatable::iPhiBC(:) !< indexes of electric field boundary conditions
+  integer,allocatable::iPtclBC(:) !< indexes of particle boundary conditions
   logical,allocatable::isDirichlet(:) !< whether a point is a Dirichlet point
   
 contains
@@ -39,12 +48,15 @@ contains
     use modSparse
     use modBasicFEM
     integer,parameter::FID=10
+    character(500)::tmpStr
+    double precision::mass,charge
     
     ! read grid
     open(FID,file='grid.msh',action='read')
       call readGMSH(FID,grid)
     close(FID)
     call grid%up()
+    
     ! work space and initial state
     allocate(phi(grid%nN))
     allocate(rhsPhi(grid%nN))
@@ -53,25 +65,44 @@ contains
     allocate(nVol(grid%nN))
     allocate(isDirichlet(grid%nN))
     allocate(ef(3,grid%nN))
-    ! read BCs
-    open(FID,file='ebc',action='read')
-      call readCondTab(FID,ebc)
+    
+    ! read particle species
+    open(FID,file='ptclSp',action='read')
+      read(FID,*)nSp
+      allocate(p(nSp))
+      do i=1,nSp
+        read(FID,*)tmpStr
+        read(FID,*)mass
+        read(FID,*)charge
+        call p(i)%init(mass*AMU,charge*QE)
+      end do
     close(FID)
-    call mapCondTab(grid,ebc,iEBC)
+    
+    ! read electric field BCs
+    open(FID,file='phiBC',action='read')
+      call readCondTab(FID,phibc)
+    close(FID)
+    call mapCondTab(grid,phibc,iPhiBC)
     rhsPhiDi(:)=0d0
     isDirichlet(:)=.false.
     do i=grid%nC+1,grid%nE
-      if(iEBC(i)>0)then
-        select case(ebc%t(iEBC(i)))
+      if(iPhiBC(i)>0)then
+        select case(phibc%t(iPhiBC(i)))
         case(BC_PHI_DIRICHLET) !< Dirichlet with given phi
           do j=1,grid%nNE(i)
             isDirichlet(grid%iNE(j,i))=.true.
-            rhsPhiDi(grid%iNE(j,i))=ebc%p(1,iEBC(i))
+            rhsPhiDi(grid%iNE(j,i))=phibc%p(1,iPhiBC(i))
           end do
         case default
         end select
       end if
     end do
+    
+    ! read particle BCs
+    open(FID,file='ptclBC',action='read')
+      call readCondTab(FID,ptclbc)
+    close(FID)
+    call mapCondTab(grid,ptclbc,iPtclBC)
     
   end subroutine
   
