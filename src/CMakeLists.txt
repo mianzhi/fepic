@@ -7,6 +7,7 @@ SET(fepic_src
   modMGS.f90
   modPush.f90
   modImpact.f90
+  modSource.f90
 )
 
 ADD_EXECUTABLE(fepic ${fepic_src})

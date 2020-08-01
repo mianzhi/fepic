@@ -6,6 +6,7 @@ module modFEPIC
   use modPICGrid
   use modCondition
   use modSparse
+  use modSource
   
   public
   
@@ -26,6 +27,7 @@ module modFEPIC
   type(condTab)::phibc !< electric field boundary conditions
   type(condTab)::ptclbc !< particle boundary conditions
   type(multiFront)::PoissonPhi !< FEM Poisson equation for phi
+  type(pSrc),allocatable::ptclSrc(:) !< particle source
   
   integer::nSp !< number of particle species
   
@@ -47,8 +49,8 @@ contains
     use modCondition
     use modSparse
     use modBasicFEM
+    use modSource
     integer,parameter::FID=10
-    character(500)::tmpStr
     double precision::mass,charge
     
     ! read grid
@@ -71,10 +73,19 @@ contains
       read(FID,*)nSp
       allocate(p(nSp))
       do i=1,nSp
-        read(FID,*)tmpStr
+        read(FID,*)
         read(FID,*)mass
         read(FID,*)charge
         call p(i)%init(mass*AMU,charge*QE)
+      end do
+    close(FID)
+    
+    ! read particle sources
+    open(FID,file='ptclSrc',action='read')
+      read(FID,*)n
+      allocate(ptclSrc(n))
+      do i=1,n
+        call readPSrc(FID,ptclSrc(i))
       end do
     close(FID)
     
