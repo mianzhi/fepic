@@ -85,7 +85,7 @@ contains
       read(FID,*)n
       allocate(ptclSrc(n))
       do i=1,n
-        call readPSrc(FID,ptclSrc(i))
+        call ptclSrc(i)%load(FID)
       end do
     close(FID)
     
