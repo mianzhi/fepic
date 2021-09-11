@@ -44,11 +44,43 @@ contains
   end subroutine
   
   !> emit particles from this particle source
-  pure subroutine emitPSrc(this,p)
+  pure subroutine emitPSrc(this,p,grid,dt)
     use modParticle
+    use modPICGrid
+    use modPolyGrid
+    use modGeometry
     class(pSrc),intent(in)::this !< this particle source
     type(ptcls),intent(inout)::p(:) !< the particles of all species
+    type(PICGrid),intent(in)::grid !< the grid
+    double precision,intent(in)::dt !< duration [s]
+    double precision::x(DIMS),u(DIMS),w,total,a,norm(DIMS)
     
+    select case(this%t)
+    case(SRC_SURFACE_FLUX)
+      do i=grid%nC+1,grid%nE
+        if(grid%gid(i)==this%gid)then
+          select case(grid%sE(i))
+          case(TRI)
+            a=a3p(grid%pN(:,grid%iNE(1:3,i)))
+            norm(:)=n3p(grid%pN(:,grid%iNE(1:3,i)))
+          case default
+            a=0d0
+            norm=0d0
+          end select
+          a=a*abs(dot_product(norm,this%u)/norm2(this%u))
+          total=this%f*dt*a
+          if(total<tiny(1d0)) cycle
+          n=ceiling(total/this%w)
+          w=total/n
+          do j=1,n
+            x=grid%p(:,i) ! FIXME: randomized x and Maxiwellian u
+            u=this%u
+            call p(this%iSp)%add(x,u,w)
+          end do
+        end if
+      end do
+    case default
+    end select
   end subroutine
   
 end module

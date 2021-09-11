@@ -41,6 +41,10 @@ module modFEPIC
   integer,allocatable::iPtclBC(:) !< indexes of particle boundary conditions
   logical,allocatable::isDirichlet(:) !< whether a point is a Dirichlet point
   
+  double precision::t !< current time [s]
+  double precision::dt !< time step size [s]
+  double precision::tFinal !< total simulation time [s]
+  
 contains
   
   !> initialize the simulation
@@ -114,6 +118,22 @@ contains
       call readCondTab(FID,ptclbc)
     close(FID)
     call mapCondTab(grid,ptclbc,iPtclBC)
+    
+    ! TODO: read simulation parameters
+    tFinal=1d-4
+    dt=2d-7
+    t=0d0
+    
+  end subroutine
+  
+  !> step particles
+  subroutine stepPtcls()
+    
+    ! emission from particle sources
+    do i=1,size(ptclSrc)
+      call ptclSrc(i)%emit(p,grid,dt)
+    end do
+    ! push particles
     
   end subroutine
   
