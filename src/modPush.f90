@@ -7,7 +7,6 @@ module modPush
   integer,parameter,private::DIMS=3 !< three dimensions
   
   integer,parameter::PUSH_DONE=0 !< pushed through the required time without impact
-  integer,parameter::PUSH_LOST=-1 !< particle lost, impact facet is not identified
   integer,parameter::PUSH_IMPACT=1 !< impact with a facet
   
   integer,parameter::LF_NORMAL=0 !< no rewind or synchronize for leap-frog
@@ -25,9 +24,8 @@ contains
   !> push the particle k under the effect of electric potential phi with leap-frog scheme
   pure subroutine pushPhiLF(grid,p,k,t,phi,f,job,info)
     use modPICGrid
-    use modParticle
     use modMGS
-    use modImpact
+    use modParticle
     class(PICGrid),intent(in)::grid !< the grid
     class(ptcls),intent(inout)::p !< the particle collection
     integer,intent(in)::k !< the particle to be pushed
@@ -37,8 +35,7 @@ contains
     integer,intent(in)::job !< rewind and synchronize
     integer,intent(out)::info !< returning status
     logical::doRewind,doSync
-    double precision::x(DIMS),xx(DIMS),v(DIMS),a(DIMS),h
-    integer::iC
+    double precision::x(DIMS),v(DIMS),a(DIMS),h
     
     f=0
     doRewind=(job==LF_REWIND.or.job==LF_REWIND_SYNC)
@@ -54,34 +51,57 @@ contains
       v=p%v(:,k)+a*t
     end if
     x=p%x(:,k)+v*t
-    iC=p%iC(k)
-    call match(grid,x,iC,xx)
-    if(iC>0)then ! push ended within the neighborhood (allows briefly flying out of neighborhood)
-      p%x(:,k)=x
+    call stride(grid,p,k,x,f,h,info)
+    if(info==PUSH_DONE)then ! no impact
       p%v(:,k)=v
-      p%iC(k)=iC
-      p%xx(:,k)=xx
       if(doSync)then
         call gather(grid,phi,p%iC(k),p%xx(:,k),a)
         a=-a*p%q/p%m
         p%v(:,k)=p%v(:,k)+0.5d0*a*t
       end if
+      t=0d0
+    else ! impact
+      p%v(:,k)=v*h+p%v(:,k)*(1d0-h)
+      t=(1d0-h)*t
+    end if
+  end subroutine
+  
+  pure recursive subroutine stride(grid,p,k,targetX,f,h,info)
+    use modPICGrid
+    use modMGS
+    use modImpact
+    use modParticle
+    class(PICGrid),intent(in)::grid !< the grid
+    class(ptcls),intent(inout)::p !< the particle collection
+    integer,intent(in)::k !< the particle to be tested
+    double precision,intent(in)::targetX(DIMS) !< target location of particle
+    integer,intent(out)::f !< facet index
+    double precision,intent(out)::h !< fraction of step at impact
+    integer,intent(out)::info !< returning status
+    integer::iC
+    double precision::midX(DIMS),x(DIMS),xx(DIMS)
+    
+    f=0
+    h=0d0
+    x(:)=targetX(:)
+    iC=p%iC(k)
+    call match(grid,x,iC,xx)
+    if(iC>0)then ! target is within the neighborhood
+      p%x(:,k)=x(:)
+      p%iC(k)=iC
+      p%xx(:,k)=xx(:)
       info=PUSH_DONE
-    else ! push ended out of the neighborhood
+    else
       call testImpact(grid,p,k,x,f,h)
       if(f>0)then ! impact detected within the neighborhood
         info=PUSH_IMPACT
-        call match(grid,x,iC,xx)
         p%x(:,k)=x
-        p%v(:,k)=v
-        p%iC(k)=iC
-        p%xx(:,k)=xx
-        t=(1d0-h)*t
-        if(iC==0)then
-          info=PUSH_LOST
+      else
+        midX(:)=0.5d0*(p%x(:,k)+targetX(:))
+        call stride(grid,p,k,midX,f,h,info)
+        if(info==PUSH_DONE)then
+          call stride(grid,p,k,targetX,f,h,info)
         end if
-      else ! impact not detected
-        info=PUSH_LOST
       end if
     end if
   end subroutine

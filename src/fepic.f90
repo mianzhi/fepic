@@ -6,11 +6,6 @@ program fepic
   use modUglyFEM
   use modBasicFEM
   
-  use modParticle
-  use modPush
-  type(ptcls)::pp
-  integer::info,f
-   
   call mpi_init(ierr)
   call mpi_comm_rank(MPI_COMM_WORLD,iProc,ierr)
   call mpi_comm_size(MPI_COMM_WORLD,nProc,ierr)
@@ -57,17 +52,18 @@ program fepic
     t=t+dt
   end do
   
+  ! FIXME this is for debugging
   if(iProc==0)then
-    call pp%init(16*1.660538921d-27,1.602d-19)
-    call pp%add([0.08d0,0.08d0,0d0],[0d0,0d0,7000d0],1d0)
-    t=1d-7
-    call push(grid,pp,1,t,phi,f,LF_REWIND,info)
-    do while(info==PUSH_DONE)
-      t=1d-7
-      call push(grid,pp,1,t,phi,f,LF_NORMAL,info)
-      write(*,*)pp%x(:,1)
-    end do
-    write(*,*)info,f,t,iPtclBC(f)==BC_PTCL_DEFAULT
+  !  call pp%init(16*1.660538921d-27,1.602d-19)
+  !  call pp%add([0.08d0,0.08d0,0d0],[0d0,0d0,7000d0],1d0)
+  !  t=1d-7
+  !  call push(grid,pp,1,t,phi,f,LF_REWIND,info)
+  !  do while(info==PUSH_DONE)
+  !    t=1d-7
+  !    call push(grid,pp,1,t,phi,f,LF_NORMAL,info)
+  !    write(*,*)pp%x(:,1)
+  !  end do
+  !  write(*,*)info,f,t,iPtclBC(f)==BC_PTCL_DEFAULT
     
     open(10,file='rst.vtk',action='write')
     call writeVTK(10,grid)

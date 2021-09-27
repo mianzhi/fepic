@@ -128,12 +128,40 @@ contains
   
   !> step particles
   subroutine stepPtcls()
+    use modPush
+    integer::f,info
+    double precision::h
+    integer::n0(size(p))
+    logical,allocatable::toBeRemoved(:)
     
+    n0(:)=p(:)%n
     ! emission from particle sources
     do i=1,size(ptclSrc)
       call ptclSrc(i)%emit(p,grid,dt)
     end do
     ! push particles
+    do j=1,size(p)
+      allocate(toBeRemoved(p(j)%n))
+      toBeRemoved(:)=.false.
+      do i=1,p(j)%n
+        h=dt
+        if(i<=n0(j))then ! old particles
+          call push(grid,p(j),i,h,phi,f,LF_NORMAL,info)
+        else ! new particles
+          call push(grid,p(j),i,h,phi,f,LF_REWIND,info)
+        end if
+        if(info==PUSH_IMPACT)then ! TODO add other particle BCs
+          toBeRemoved(i)=.true.
+        end if
+      end do
+      do i=p(j)%n,1,-1 ! reversed loop to ensure correct removal
+        if(toBeRemoved(i))then
+          call p(j)%rm(i)
+        end if
+      end do
+      deallocate(toBeRemoved)
+    end do
+    write(*,*)p(:)%n
     
   end subroutine
   
