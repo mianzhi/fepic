@@ -66,6 +66,7 @@ contains
     end if
   end subroutine
   
+  !> stride the particle k along a line segment while keeping track of iC and impact
   pure recursive subroutine stride(grid,p,k,targetX,f,h,info)
     use modPICGrid
     use modMGS

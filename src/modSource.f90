@@ -53,7 +53,8 @@ contains
     type(ptcls),intent(inout)::p(:) !< the particles of all species
     type(PICGrid),intent(in)::grid !< the grid
     double precision,intent(in)::dt !< duration [s]
-    double precision::x(DIMS),u(DIMS),w,total,a,norm(DIMS)
+    double precision,parameter::INTO_DOMAIN=1d-6 !< to keep new particles inside the domain
+    double precision::x(DIMS),u(DIMS),w,total,a,norm(DIMS),aa
     
     select case(this%t)
     case(SRC_SURFACE_FLUX)
@@ -62,9 +63,11 @@ contains
           select case(grid%sE(i))
           case(TRI)
             a=a3p(grid%pN(:,grid%iNE(1:3,i)))
+            aa=a
             norm(:)=n3p(grid%pN(:,grid%iNE(1:3,i)))
           case default
             a=0d0
+            aa=a
             norm=0d0
           end select
           a=a*abs(dot_product(norm,this%u)/norm2(this%u))
@@ -73,7 +76,7 @@ contains
           n=ceiling(total/this%w)
           w=total/n
           do j=1,n
-            x=grid%p(:,i) ! FIXME: randomized x and Maxiwellian u
+            x=grid%p(:,i)-norm(:)*sqrt(aa)*INTO_DOMAIN ! FIXME: randomized x and Maxiwellian u
             u=this%u
             call p(this%iSp)%add(x,u,w)
           end do

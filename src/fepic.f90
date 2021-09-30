@@ -5,6 +5,9 @@ program fepic
   use modSparse
   use modUglyFEM
   use modBasicFEM
+  use modMGS
+  
+  character(20)::tmpStr
   
   call mpi_init(ierr)
   call mpi_comm_rank(MPI_COMM_WORLD,iProc,ierr)
@@ -35,43 +38,54 @@ program fepic
   end if
   call mpi_bcast(ef,size(ef),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   
+  ! write initial state
+  call preOut()
+  if(iProc==0)then
+    write(tmpStr,*)iOut
+    write(*,'(a)')'[i] writing: rst_'//trim(adjustl(tmpStr))//'.vtk'
+    call writeState('rst_'//trim(adjustl(tmpStr))//'.vtk')
+  end if
+  
   ! time loop
   do while(t<tFinal)
-    ! push particles and deposit again
-    call stepPtcls()
-  !  call mpi_reduce(rhsPhiLocal,rhsPhi,size(rhsPhi),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,&
-  !  &               ierr)
-    ! solve field at process 0
-  !  if(iProc==0)then
-  !    rhsPhi=merge(rhsPhiDi,rhsPhi,isDirichlet)
-  !    call PoissonPhi%solve(rhsPhi,phi)
-  !    call findNodalGrad(grid,phi,nVol,ef)
-  !    ef(:,:)=-ef(:,:)
-  !  end if
-  !  call mpi_bcast(ef,size(ef),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-    t=t+dt
-  end do
   
-  ! FIXME this is for debugging
-  if(iProc==0)then
-  !  call pp%init(16*1.660538921d-27,1.602d-19)
-  !  call pp%add([0.08d0,0.08d0,0d0],[0d0,0d0,7000d0],1d0)
-  !  t=1d-7
-  !  call push(grid,pp,1,t,phi,f,LF_REWIND,info)
-  !  do while(info==PUSH_DONE)
-  !    t=1d-7
-  !    call push(grid,pp,1,t,phi,f,LF_NORMAL,info)
-  !    write(*,*)pp%x(:,1)
-  !  end do
-  !  write(*,*)info,f,t,iPtclBC(f)==BC_PTCL_DEFAULT
+    ! push particles
+    call stepPtcls()
+    call mpi_reduce(sum(p(:)%n),n,1,MPI_INTEGER,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+    if(iProc==0) write(*,'(a,g12.6,a,i9)')"[i] t = ",t,": particle count ",n
     
-    open(10,file='rst.vtk',action='write')
-    call writeVTK(10,grid)
-    call writeVTK(10,grid,N_DATA)
-    call writeVTK(10,'phi',phi)
-    call writeVTK(10,'ef',ef)
-    close(10)
-  end if
+    ! deposit and reduce RHS
+    rhsPhiLocal(:)=0d0
+    do j=1,size(p)
+      do i=1,p(j)%n
+        call scatter(grid,p(j)%w(i)*p(j)%q/EPS0,p(j)%iC(i),p(j)%xx(:,i),rhsPhiLocal)
+      end do
+    end do
+    call mpi_reduce(rhsPhiLocal,rhsPhi,size(rhsPhi),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,&
+    &               ierr)
+    
+    ! solve field
+    if(iProc==0)then
+      rhsPhi=merge(rhsPhiDi,rhsPhi,isDirichlet)
+      call PoissonPhi%solve(rhsPhi,phi)
+      call findNodalGrad(grid,phi,nVol,ef)
+      ef(:,:)=-ef(:,:)
+    end if
+    call mpi_bcast(ef,size(ef),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+    
+    t=t+dt
+    
+    ! write visualization
+    call preOut()
+    if(iProc==0.and.t+tiny(1d0)>=tOutNext)then
+      iOut=iOut+1
+      write(tmpStr,*)iOut
+      write(*,'(a)')'[i] writing: rst_'//trim(adjustl(tmpStr))//'.vtk'
+      call writeState('rst_'//trim(adjustl(tmpStr))//'.vtk')
+      tOutNext=tOutNext+dtOut
+    end if
+    
+  end do
   
   call mpi_finalize(ierr)
   

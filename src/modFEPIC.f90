@@ -14,6 +14,9 @@ module modFEPIC
   
   double precision,parameter::AMU=1.6605390666050d-27 !< atomic mass unit (Dalton) [kg]
   double precision,parameter::QE=1.602176634d-19 !< elementary charge [C]
+  double precision,parameter::EPS0=8.85418782d-12 !< vacuum permittivity [F/m]
+  double precision,parameter::KB=1.38065d-23 !< Boltzmann constant [J/K]
+  double precision,parameter::EV2K=11604.52d0 !< 1eV in Kelvin [QE/K]
   
   integer,parameter::BC_PHI_DEFAULT=0 !< default phi BC: Neumann with zero normal phi gradient
   integer,parameter::BC_PHI_DIRICHLET=1 !< Dirichlet BC with given potential
@@ -36,6 +39,8 @@ module modFEPIC
   double precision,allocatable::rhsPhi(:) !< RHS of the phi equation [C], and [V] (Dirichlet nodes)
   double precision,allocatable::rhsPhiDi(:) !< RHS of the phi equation, only Dirichlet nodes [V]
   double precision,allocatable::rhsPhiLocal(:) !< RHS of the phi equation, local version [C]
+  double precision,allocatable::rho(:) !< plasma density [QE/m^3]
+  double precision,allocatable::rhoLocal(:) !< plasma density, local version [QE/m^3]
   double precision,allocatable::nVol(:) !< FEM nodal volume
   integer,allocatable::iPhiBC(:) !< indexes of electric field boundary conditions
   integer,allocatable::iPtclBC(:) !< indexes of particle boundary conditions
@@ -44,6 +49,10 @@ module modFEPIC
   double precision::t !< current time [s]
   double precision::dt !< time step size [s]
   double precision::tFinal !< total simulation time [s]
+  
+  double precision::tOutNext !< time to write the next output [s]
+  double precision::dtOut !< interval to write output [s]
+  integer::iOut !< output index
   
 contains
   
@@ -68,6 +77,8 @@ contains
     allocate(rhsPhi(grid%nN))
     allocate(rhsPhiDi(grid%nN))
     allocate(rhsPhiLocal(grid%nN))
+    allocate(rho(grid%nN))
+    allocate(rhoLocal(grid%nN))
     allocate(nVol(grid%nN))
     allocate(isDirichlet(grid%nN))
     allocate(ef(3,grid%nN))
@@ -122,7 +133,11 @@ contains
     ! TODO: read simulation parameters
     tFinal=1d-4
     dt=2d-7
+    dtOut=4d-7
+    
     t=0d0
+    iOut=0
+    tOutNext=dtOut
     
   end subroutine
   
@@ -161,8 +176,37 @@ contains
       end do
       deallocate(toBeRemoved)
     end do
-    write(*,*)p(:)%n
     
+  end subroutine
+  
+  !> prepare data before writing the state (must run on all processes)
+  subroutine preOut()
+    use modMGS
+    use mpi
+    
+    rhoLocal(:)=0d0
+    do j=1,size(p)
+      do i=1,p(j)%n
+        call scatter(grid,p(j)%w(i)*p(j)%q/QE,p(j)%iC(i),p(j)%xx(:,i),rhoLocal)
+      end do
+    end do
+    rhoLocal(:)=rhoLocal(:)/nVol(:)
+    call mpi_reduce(rhoLocal,rho,size(rho),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+  end subroutine
+  
+  !> write the state to post-processing file
+  subroutine writeState(fName)
+    use modFileIO
+    character(*),intent(in)::fName
+    integer,parameter::FID=10
+    
+    open(FID,file=trim(fName),action='write')
+    call writeVTK(FID,grid)
+    call writeVTK(FID,grid,N_DATA)
+    call writeVTK(FID,'phi',phi)
+    call writeVTK(FID,'rho',rho)
+    call writeVTK(FID,'ef',ef)
+    close(FID)
   end subroutine
   
 end module
