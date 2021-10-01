@@ -8,6 +8,7 @@ module modPush
   
   integer,parameter::PUSH_DONE=0 !< pushed through the required time without impact
   integer,parameter::PUSH_IMPACT=1 !< impact with a facet
+  integer,parameter::PUSH_LOST=-1 !< particle lost
   
   integer,parameter::LF_NORMAL=0 !< no rewind or synchronize for leap-frog
   integer,parameter::LF_REWIND=1 !< do rewind for leap-frog
@@ -60,14 +61,14 @@ contains
         p%v(:,k)=p%v(:,k)+0.5d0*a*t
       end if
       t=0d0
-    else ! impact
+    else if(info==PUSH_IMPACT)then ! impact
       p%v(:,k)=v*h+p%v(:,k)*(1d0-h)
       t=(1d0-h)*t
     end if
   end subroutine
   
   !> stride the particle k along a line segment while keeping track of iC and impact
-  pure recursive subroutine stride(grid,p,k,targetX,f,h,info)
+  pure recursive subroutine stride(grid,p,k,targetX,f,h,info,depth)
     use modPICGrid
     use modMGS
     use modImpact
@@ -79,13 +80,24 @@ contains
     integer,intent(out)::f !< facet index
     double precision,intent(out)::h !< fraction of step at impact
     integer,intent(out)::info !< returning status
-    integer::iC
+    integer,optional,intent(in)::depth !< recursion depth
+    integer,parameter::MAX_DEPTH=50 !< maximum recursion depth
+    integer::iC,d
     double precision::midX(DIMS),x(DIMS),xx(DIMS)
     
     f=0
     h=0d0
     x(:)=targetX(:)
     iC=p%iC(k)
+    if(present(depth))then
+      d=depth
+      if(depth>MAX_DEPTH)then
+        info=PUSH_LOST
+        return
+      end if
+    else
+      d=0
+    end if
     call match(grid,x,iC,xx)
     if(iC>0)then ! target is within the neighborhood
       p%x(:,k)=x(:)
@@ -99,9 +111,9 @@ contains
         p%x(:,k)=x
       else
         midX(:)=0.5d0*(p%x(:,k)+targetX(:))
-        call stride(grid,p,k,midX,f,h,info)
+        call stride(grid,p,k,midX,f,h,info,depth=d+1)
         if(info==PUSH_DONE)then
-          call stride(grid,p,k,targetX,f,h,info)
+          call stride(grid,p,k,targetX,f,h,info,depth=d+1)
         end if
       end if
     end if

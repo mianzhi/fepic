@@ -168,6 +168,11 @@ contains
         if(info==PUSH_IMPACT)then ! TODO add other particle BCs
           toBeRemoved(i)=.true.
         end if
+        if(info==PUSH_LOST)then
+          write(*,*)'[W] PARTICLE LOST AT <x,y,z>:'
+          write(*,*)p(j)%x(:,i)
+          toBeRemoved(i)=.true.
+        end if
       end do
       do i=p(j)%n,1,-1 ! reversed loop to ensure correct removal
         if(toBeRemoved(i))then
