@@ -44,7 +44,7 @@ contains
   end subroutine
   
   !> emit particles from this particle source
-  pure subroutine emitPSrc(this,p,grid,dt)
+  subroutine emitPSrc(this,p,grid,dt)
     use modParticle
     use modPICGrid
     use modPolyGrid
@@ -54,7 +54,7 @@ contains
     type(PICGrid),intent(in)::grid !< the grid
     double precision,intent(in)::dt !< duration [s]
     double precision,parameter::INTO_DOMAIN=1d-6 !< to keep new particles inside the domain
-    double precision::x(DIMS),u(DIMS),w,total,a,norm(DIMS),aa
+    double precision::x(DIMS),u(DIMS),w,total,a,norm(DIMS),aa,r1,r2,r3,r4
     
     select case(this%t)
     case(SRC_SURFACE_FLUX)
@@ -76,8 +76,20 @@ contains
           n=ceiling(total/this%w)
           w=total/n
           do j=1,n
-            x=grid%p(:,i)-norm(:)*sqrt(aa)*INTO_DOMAIN ! FIXME: randomized x and Maxiwellian u
-            u=this%u
+            select case(grid%sE(i))
+            case(TRI)
+              call random_number(r1)
+              call random_number(r2)
+              r3=min(r1,r2)
+              r4=max(r1,r2)
+              r1=r4-r3
+              r2=1d0-r4
+              x=r1*grid%pN(:,grid%iNE(1,i))+r2*grid%pN(:,grid%iNE(2,i))+r3*grid%pN(:,grid%iNE(3,i))
+            case default
+              x(:)=0d0
+            end select
+            x=x-norm(:)*sqrt(aa)*INTO_DOMAIN
+            u=this%u ! TODO: Maxiwellian u
             call p(this%iSp)%add(x,u,w)
           end do
         end if
