@@ -54,6 +54,11 @@ module modFEPIC
   double precision::dtOut !< interval to write output [s]
   integer::iOut !< output index
   
+  ! Boltzmann relationship electron model parameters
+  double precision::ne0BR !< reference electron density [m^-3]
+  double precision::phi0BR !< reference electric potential [V]
+  double precision::kbTeBR !< electron temperature [eV]
+  
 contains
   
   !> initialize the simulation
@@ -129,6 +134,11 @@ contains
       call readCondTab(FID,ptclbc)
     close(FID)
     call mapCondTab(grid,ptclbc,iPtclBC)
+    
+    ! TODO: read electron model parameters
+    ne0BR=1d11
+    phi0BR=0d0
+    kbTeBR=2d0
     
     ! TODO: read simulation parameters
     tFinal=1d-4

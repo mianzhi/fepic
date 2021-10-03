@@ -54,7 +54,7 @@ program fepic
     call mpi_reduce(sum(p(:)%n),n,1,MPI_INTEGER,MPI_SUM,0,MPI_COMM_WORLD,ierr)
     if(iProc==0) write(*,'(a,g12.6,a,i9)')"[i] t = ",t,": particle count ",n
     
-    ! deposit and reduce RHS
+    ! deposit ions, reduce RHS, apply electron model
     rhsPhiLocal(:)=0d0
     do j=1,size(p)
       do i=1,p(j)%n
@@ -63,6 +63,11 @@ program fepic
     end do
     call mpi_reduce(rhsPhiLocal,rhsPhi,size(rhsPhi),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,&
     &               ierr)
+    if(iProc==0)then
+      do i=1,grid%nN
+        rhsPhi(i)=rhsPhi(i)-QE/EPS0*ne0BR*exp((phi(i)-phi0BR)/kbTeBR)*nVol(i)
+      end do
+    end if
     
     ! solve field
     if(iProc==0)then
