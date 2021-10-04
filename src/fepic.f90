@@ -23,6 +23,7 @@ program fepic
     call PoissonPhi%fact()
     call findVolSrc(grid,nVol)
   end if
+  call mpi_bcast(nVol,size(nVol),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   
   ! initial particle loading and deposition
   rhsPhiLocal(:)=0d0

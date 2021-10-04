@@ -44,7 +44,7 @@ contains
   end subroutine
   
   !> emit particles from this particle source
-  subroutine emitPSrc(this,p,grid,dt)
+  subroutine emitPSrc(this,p,grid,dt,nProc)
     use modParticle
     use modPICGrid
     use modPolyGrid
@@ -53,6 +53,7 @@ contains
     type(ptcls),intent(inout)::p(:) !< the particles of all species
     type(PICGrid),intent(in)::grid !< the grid
     double precision,intent(in)::dt !< duration [s]
+    integer,intent(in)::nProc !< number of processes (new particles equally split among processes)
     double precision,parameter::INTO_DOMAIN=1d-6 !< to keep new particles inside the domain
     double precision::x(DIMS),u(DIMS),w,total,a,norm(DIMS),aa,r1,r2,r3,r4
     
@@ -71,7 +72,7 @@ contains
             norm=0d0
           end select
           a=a*abs(dot_product(norm,this%u)/norm2(this%u))
-          total=this%f*dt*a
+          total=this%f*dt*a/nProc
           if(total<tiny(1d0)) cycle
           n=ceiling(total/this%w)
           w=total/n

@@ -162,7 +162,7 @@ contains
     n0(:)=p(:)%n
     ! emission from particle sources
     do i=1,size(ptclSrc)
-      call ptclSrc(i)%emit(p,grid,dt)
+      call ptclSrc(i)%emit(p,grid,dt,nProc)
     end do
     ! push particles
     do j=1,size(p)
