@@ -37,7 +37,7 @@ program fepic
     call findNodalGrad(grid,phi,nVol,ef)
     ef(:,:)=-ef(:,:)
   end if
-  call mpi_bcast(ef,size(ef),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  call mpi_bcast(phi,size(phi),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   
   ! write initial state
   call preOut()
@@ -77,7 +77,7 @@ program fepic
       call findNodalGrad(grid,phi,nVol,ef)
       ef(:,:)=-ef(:,:)
     end if
-    call mpi_bcast(ef,size(ef),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+    call mpi_bcast(phi,size(phi),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
     
     t=t+dt
     
