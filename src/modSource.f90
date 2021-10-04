@@ -17,6 +17,7 @@ module modSource
     double precision,public::u(DIMS) !< drifting velocity [m/s]
     double precision,public::temp !< temperature [K] if Maxwellian
     integer,public::gid !< geometric id
+    logical,allocatable,public::mask(:) !< cell mask for efficient initial cell match
   contains
     procedure,public::load=>readPSrc
     procedure,public::emit=>emitPSrc
@@ -49,13 +50,15 @@ contains
     use modPICGrid
     use modPolyGrid
     use modGeometry
-    class(pSrc),intent(in)::this !< this particle source
+    use modMGS
+    class(pSrc),intent(inout)::this !< this particle source
     type(ptcls),intent(inout)::p(:) !< the particles of all species
     type(PICGrid),intent(in)::grid !< the grid
     double precision,intent(in)::dt !< duration [s]
     integer,intent(in)::nProc !< number of processes (new particles equally split among processes)
     double precision,parameter::INTO_DOMAIN=1d-6 !< to keep new particles inside the domain
-    double precision::x(DIMS),u(DIMS),w,total,a,norm(DIMS),aa,r1,r2,r3,r4
+    double precision::x(DIMS),u(DIMS),w,total,a,norm(DIMS),aa,r1,r2,r3,r4,xx(DIMS)
+    integer::iC
     
     select case(this%t)
     case(SRC_SURFACE_FLUX)
@@ -76,7 +79,8 @@ contains
           if(total<tiny(1d0)) cycle
           n=ceiling(total/this%w)
           w=total/n
-          do j=1,n
+          j=1
+          do while(j<=n)
             select case(grid%sE(i))
             case(TRI)
               call random_number(r1)
@@ -91,7 +95,11 @@ contains
             end select
             x=x-norm(:)*sqrt(aa)*INTO_DOMAIN
             u=this%u ! TODO: Maxiwellian u
-            call p(this%iSp)%add(x,u,w)
+            call match(grid,x,iC,xx,this%mask)
+            if(iC>0)then
+              call p(this%iSp)%add(x,u,w,iC=iC,xx=xx)
+              j=j+1
+            end if
           end do
         end if
       end do

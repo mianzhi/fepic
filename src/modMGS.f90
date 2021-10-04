@@ -9,6 +9,7 @@ module modMGS
   !> generic match
   interface match
     module procedure::matchSimple
+    module procedure::matchWithMask
   end interface
   
   !> generic gather
@@ -61,6 +62,55 @@ contains
         if(isInside)then
           iC=i
           exit
+        end if
+      end do
+    end if
+    if(iC/=0.and.present(xx))then
+      xx=xxx
+    end if
+  end subroutine
+  
+  !> match (particle) location x with cell iC in grid with a cell mask array
+  !>   use mask for initial match, flip mask if hit cell that is initially un-masked
+  pure subroutine matchWithMask(grid,x,iC,xx,mask)
+    use modPICGrid
+    use modUglyFEM
+    class(PICGrid),intent(in)::grid !< the grid
+    double precision,intent(in)::x(DIMS) !< global location [m]
+    integer,intent(inout)::iC !< initial cell at input, matched cell at output
+    double precision,intent(inout),optional::xx(DIMS) !< location at reference cell of iC
+    logical,allocatable,intent(inout)::mask(:) !< the mask
+    double precision::xxx(DIMS)
+    logical::isInside,isFound
+    
+    isFound=.false.
+    if(.not.allocated(mask))then
+      allocate(mask(grid%nC))
+      mask(:)=.false.
+    else if(size(mask)/=grid%nC)then
+      deallocate(mask)
+      allocate(mask(grid%nC))
+      mask(:)=.false.
+    end if
+    do i=1,grid%nC
+      if(mask(i))then
+        call x2xx(grid,i,x,xxx,isInside)
+        if(isInside)then
+          iC=i
+          isFound=.true.
+          exit
+        end if
+      end if
+    end do
+    if(.not.isFound)then
+      do i=1,grid%nC
+        if(.not.mask(i))then
+          call x2xx(grid,i,x,xxx,isInside)
+          if(isInside)then
+            iC=i
+            mask(i)=.true.
+            exit
+          end if
         end if
       end do
     end if
