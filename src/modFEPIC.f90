@@ -39,8 +39,8 @@ module modFEPIC
   double precision,allocatable::rhsPhi(:) !< RHS of the phi equation [C], and [V] (Dirichlet nodes)
   double precision,allocatable::rhsPhiDi(:) !< RHS of the phi equation, only Dirichlet nodes [V]
   double precision,allocatable::rhsPhiLocal(:) !< RHS of the phi equation, local version [C]
-  double precision,allocatable::rho(:) !< plasma density [QE/m^3]
-  double precision,allocatable::rhoLocal(:) !< plasma density, local version [QE/m^3]
+  double precision,allocatable::den(:,:) !< species density [m^-3]
+  double precision,allocatable::denLocal(:,:) !< species density, local version [m^-3]
   double precision,allocatable::nVol(:) !< FEM nodal volume
   integer,allocatable::iPhiBC(:) !< indexes of electric field boundary conditions
   integer,allocatable::iPtclBC(:) !< indexes of particle boundary conditions
@@ -77,17 +77,6 @@ contains
     close(FID)
     call grid%up()
     
-    ! work space and initial state
-    allocate(phi(grid%nN))
-    allocate(rhsPhi(grid%nN))
-    allocate(rhsPhiDi(grid%nN))
-    allocate(rhsPhiLocal(grid%nN))
-    allocate(rho(grid%nN))
-    allocate(rhoLocal(grid%nN))
-    allocate(nVol(grid%nN))
-    allocate(isDirichlet(grid%nN))
-    allocate(ef(3,grid%nN))
-    
     ! read particle species
     open(FID,file='ptclSp',action='read')
       read(FID,*)nSp
@@ -99,6 +88,17 @@ contains
         call p(i)%init(mass*AMU,charge*QE)
       end do
     close(FID)
+    
+    ! work space and initial state
+    allocate(phi(grid%nN))
+    allocate(rhsPhi(grid%nN))
+    allocate(rhsPhiDi(grid%nN))
+    allocate(rhsPhiLocal(grid%nN))
+    allocate(den(grid%nN,size(p)))
+    allocate(denLocal(grid%nN,size(p)))
+    allocate(nVol(grid%nN))
+    allocate(isDirichlet(grid%nN))
+    allocate(ef(3,grid%nN))
     
     ! read particle sources
     open(FID,file='ptclSrc',action='read')
@@ -199,14 +199,16 @@ contains
     use modMGS
     use mpi
     
-    rhoLocal(:)=0d0
+    denLocal(:,:)=0d0
     do j=1,size(p)
       do i=1,p(j)%n
-        call scatter(grid,p(j)%w(i)*p(j)%q/QE,p(j)%iC(i),p(j)%xx(:,i),rhoLocal)
+        call scatter(grid,p(j)%w(i),p(j)%iC(i),p(j)%xx(:,i),denLocal(:,j))
       end do
     end do
-    rhoLocal(:)=rhoLocal(:)/nVol(:)
-    call mpi_reduce(rhoLocal,rho,size(rho),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+    forall(j=1:size(p))
+      denLocal(:,j)=denLocal(:,j)/nVol(:)
+    end forall
+    call mpi_reduce(denLocal,den,size(den),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
   end subroutine
   
   !> write the state to post-processing file
@@ -214,13 +216,17 @@ contains
     use modFileIO
     character(*),intent(in)::fName
     integer,parameter::FID=10
+    character(20)::tmpStr
     
     open(FID,file=trim(fName),action='write')
     call writeVTK(FID,grid)
     call writeVTK(FID,grid,N_DATA)
     call writeVTK(FID,'phi',phi)
-    call writeVTK(FID,'rho',rho)
     call writeVTK(FID,'ef',ef)
+    do i=1,size(p)
+      write(tmpStr,*)i
+      call writeVTK(FID,'den'//trim(adjustl(tmpStr)),den(:,i))
+    end do
     close(FID)
   end subroutine
   
