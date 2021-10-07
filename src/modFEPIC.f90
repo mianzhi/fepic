@@ -15,8 +15,6 @@ module modFEPIC
   double precision,parameter::AMU=1.6605390666050d-27 !< atomic mass unit (Dalton) [kg]
   double precision,parameter::QE=1.602176634d-19 !< elementary charge [C]
   double precision,parameter::EPS0=8.85418782d-12 !< vacuum permittivity [F/m]
-  double precision,parameter::KB=1.38065d-23 !< Boltzmann constant [J/K]
-  double precision,parameter::EV2K=11604.52d0 !< 1eV in Kelvin [QE/K]
   
   integer,parameter::BC_PHI_DEFAULT=0 !< default phi BC: Neumann with zero normal phi gradient
   integer,parameter::BC_PHI_DIRICHLET=1 !< Dirichlet BC with given potential
