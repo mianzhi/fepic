@@ -133,15 +133,19 @@ contains
     close(FID)
     call mapCondTab(grid,ptclbc,iPtclBC)
     
-    ! TODO: read electron model parameters
-    ne0BR=1d11
-    phi0BR=0d0
-    kbTeBR=2d0
+    ! read electron model parameters
+    open(FID,file='eMod',action='read')
+      read(FID,*)ne0BR
+      read(FID,*)phi0BR
+      read(FID,*)kbTeBR
+    close(FID)
     
-    ! TODO: read simulation parameters
-    tFinal=1d-4
-    dt=2d-7
-    dtOut=4d-7
+    ! read simulation parameters
+    open(FID,file='sim',action='read')
+      read(FID,*)tFinal
+      read(FID,*)dt
+      read(FID,*)dtOut
+    close(FID)
     
     t=0d0
     iOut=0
