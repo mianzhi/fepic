@@ -75,7 +75,7 @@ contains
     double precision,intent(in)::x(DIMS) !< global location to be mapped [m]
     double precision,intent(inout)::xx(DIMS) !< location in the reference element of cell iC
     logical,optional,intent(inout)::isInside !< whether x is inside cell iC
-    double precision,parameter::TOL=1d-6 !< tolerance in the reference coordinate
+    double precision,parameter::TOL=0d0 !< tolerance in the reference coordinate
     
     select case(grid%sE(iC))
     case(TET)
