@@ -27,7 +27,7 @@ module modFEPIC
   type(PICGrid)::grid !< the grid
   type(condTab)::phibc !< electric field boundary conditions
   type(condTab)::ptclbc !< particle boundary conditions
-  type(multiFront)::PoissonPhi !< FEM Poisson equation for phi
+  type(multiFront)::phiLinEq !< linearized FEM phi equation
   type(pSrc),allocatable::ptclSrc(:) !< particle source
   
   integer::nSp !< number of particle species
@@ -36,7 +36,8 @@ module modFEPIC
   double precision,allocatable::ef(:,:) !< electric field strength [V/m]
   double precision,allocatable::rhsPhi(:) !< RHS of the phi equation [C], and [V] (Dirichlet nodes)
   double precision,allocatable::rhsPhiDi(:) !< RHS of the phi equation, only Dirichlet nodes [V]
-  double precision,allocatable::rhsPhiLocal(:) !< RHS of the phi equation, local version [C]
+  double precision,allocatable::qDepoLocal(:) !< discretized ionDensity/EPS0, local version [C]
+  double precision,allocatable::qDepo(:) !< discretized ionDensity/EPS0, reduced version [C]
   double precision,allocatable::den(:,:) !< species density [m^-3]
   double precision,allocatable::denLocal(:,:) !< species density, local version [m^-3]
   double precision,allocatable::nVol(:) !< FEM nodal volume
@@ -91,7 +92,8 @@ contains
     allocate(phi(grid%nN))
     allocate(rhsPhi(grid%nN))
     allocate(rhsPhiDi(grid%nN))
-    allocate(rhsPhiLocal(grid%nN))
+    allocate(qDepoLocal(grid%nN))
+    allocate(qDepo(grid%nN))
     allocate(den(grid%nN,size(p)))
     allocate(denLocal(grid%nN,size(p)))
     allocate(nVol(grid%nN))

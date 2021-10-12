@@ -18,22 +18,26 @@ program fepic
   
   ! initial FEM setup and factorization at process 0
   if(iProc==0)then
-    call PoissonPhi%init(grid%nN,size(grid%iNE,1)**2*grid%nE)
-    call findLaplacian(grid,PoissonPhi,isDirichlet)
-    call PoissonPhi%fact()
+    call phiLinEq%init(grid%nN,size(grid%iNE,1)**2*grid%nE)
+    call findLaplacian(grid,phiLinEq,isDirichlet)
+    call phiLinEq%fact()
     call findVolSrc(grid,nVol)
   end if
   call mpi_bcast(nVol,size(nVol),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   
   ! initial particle loading and deposition
-  rhsPhiLocal(:)=0d0
-  call mpi_reduce(rhsPhiLocal,rhsPhi,size(rhsPhi),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,&
-  &               ierr)
+  qDepoLocal(:)=0d0
+  call mpi_reduce(qDepoLocal,qDepo,size(qDepo),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+  if(iProc==0)then
+    do i=1,grid%nN
+      rhsPhi(i)=qDepo(i) ! no electron model initially
+    end do
+  end if
   
   ! solve field at process 0
   if(iProc==0)then
     rhsPhi=merge(rhsPhiDi,rhsPhi,isDirichlet)
-    call PoissonPhi%solve(rhsPhi,phi)
+    call phiLinEq%solve(rhsPhi,phi)
     call findNodalGrad(grid,phi,nVol,ef)
     ef(:,:)=-ef(:,:)
   end if
@@ -56,24 +60,23 @@ program fepic
     if(iProc==0) write(*,'(a,g12.6,a,i9)')"[i] t = ",t,": particle count ",n
     
     ! deposit ions, reduce RHS, apply electron model
-    rhsPhiLocal(:)=0d0
+    qDepoLocal(:)=0d0
     do j=1,size(p)
       do i=1,p(j)%n
-        call scatter(grid,p(j)%w(i)*p(j)%q/EPS0,p(j)%iC(i),p(j)%xx(:,i),rhsPhiLocal)
+        call scatter(grid,p(j)%w(i)*p(j)%q/EPS0,p(j)%iC(i),p(j)%xx(:,i),qDepoLocal)
       end do
     end do
-    call mpi_reduce(rhsPhiLocal,rhsPhi,size(rhsPhi),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,&
-    &               ierr)
+    call mpi_reduce(qDepoLocal,qDepo,size(qDepo),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
     if(iProc==0)then
       do i=1,grid%nN
-        rhsPhi(i)=rhsPhi(i)-QE/EPS0*ne0BR*exp((phi(i)-phi0BR)/kbTeBR)*nVol(i)
+        rhsPhi(i)=qDepo(i)-QE/EPS0*ne0BR*exp((phi(i)-phi0BR)/kbTeBR)*nVol(i)
       end do
     end if
     
     ! solve field
     if(iProc==0)then
       rhsPhi=merge(rhsPhiDi,rhsPhi,isDirichlet)
-      call PoissonPhi%solve(rhsPhi,phi)
+      call phiLinEq%solve(rhsPhi,phi)
       call findNodalGrad(grid,phi,nVol,ef)
       ef(:,:)=-ef(:,:)
     end if
