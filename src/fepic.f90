@@ -3,7 +3,6 @@ program fepic
   use modFEPIC
   use modFileIO
   use modSparse
-  use modUglyFEM
   use modBasicFEM
   use modMGS
   
@@ -38,8 +37,6 @@ program fepic
   if(iProc==0)then
     rhsPhi=merge(rhsPhiDi,rhsPhi,isDirichlet)
     call phiLinEq%solve(rhsPhi,phi)
-    call findNodalGrad(grid,phi,nVol,ef)
-    ef(:,:)=-ef(:,:)
   end if
   call mpi_bcast(phi,size(phi),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   
@@ -77,8 +74,6 @@ program fepic
     if(iProc==0)then
       rhsPhi=merge(rhsPhiDi,rhsPhi,isDirichlet)
       call phiLinEq%solve(rhsPhi,phi)
-      call findNodalGrad(grid,phi,nVol,ef)
-      ef(:,:)=-ef(:,:)
     end if
     call mpi_bcast(phi,size(phi),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
     

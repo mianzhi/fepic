@@ -201,8 +201,10 @@ contains
   !> prepare data before writing the state (must run on all processes)
   subroutine preOut()
     use modMGS
+    use modUglyFEM
     use mpi
     
+    ! species density
     denLocal(:,:)=0d0
     do j=1,size(p)
       do i=1,p(j)%n
@@ -213,6 +215,12 @@ contains
       denLocal(:,j)=denLocal(:,j)/nVol(:)
     end forall
     call mpi_reduce(denLocal,den,size(den),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+    
+    ! electric field
+    if(iProc==0)then
+      call findNodalGrad(grid,phi,nVol,ef)
+      ef(:,:)=-ef(:,:)
+    end if
   end subroutine
   
   !> write the state to post-processing file
