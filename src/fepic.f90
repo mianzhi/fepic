@@ -7,6 +7,7 @@ program fepic
   use modMGS
   
   character(20)::tmpStr
+  integer::info
   
   call mpi_init(ierr)
   call mpi_comm_rank(MPI_COMM_WORLD,iProc,ierr)
@@ -15,11 +16,12 @@ program fepic
   ! initialization at all processes
   call init()
   
-  ! initial FEM setup and factorization at process 0
+  ! initial FEM setup at process 0
   if(iProc==0)then
+    call phiEq%init(grid%nN,phiRes)!,pSet=phiPSet,pSol=phiPSol)
     call phiLinEq%init(grid%nN,size(grid%iNE,1)**2*grid%nE)
-    call findLaplacian(grid,phiLinEq,isDirichlet)
-    call phiLinEq%fact()
+    call negLaPhi%init(grid%nN,size(grid%iNE,1)**2*grid%nE)
+    call findLaplacian(grid,negLaPhi,isDirichlet)
     call findVolSrc(grid,nVol)
   end if
   call mpi_bcast(nVol,size(nVol),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
@@ -27,16 +29,11 @@ program fepic
   ! initial particle loading and deposition
   qDepoLocal(:)=0d0
   call mpi_reduce(qDepoLocal,qDepo,size(qDepo),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-  if(iProc==0)then
-    do i=1,grid%nN
-      rhsPhi(i)=qDepo(i) ! no electron model initially
-    end do
-  end if
   
   ! solve field at process 0
   if(iProc==0)then
-    rhsPhi=merge(rhsPhiDi,rhsPhi,isDirichlet)
-    call phiLinEq%solve(rhsPhi,phi)
+    phi(:)=rhsPhiDi(:) ! initial guess of phi
+    call phiEq%solve(phi,info=info)
   end if
   call mpi_bcast(phi,size(phi),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   
@@ -56,7 +53,7 @@ program fepic
     call mpi_reduce(sum(p(:)%n),n,1,MPI_INTEGER,MPI_SUM,0,MPI_COMM_WORLD,ierr)
     if(iProc==0) write(*,'(a,g12.6,a,i9)')"[i] t = ",t,": particle count ",n
     
-    ! deposit ions, reduce RHS, apply electron model
+    ! deposit particle charge
     qDepoLocal(:)=0d0
     do j=1,size(p)
       do i=1,p(j)%n
@@ -64,16 +61,10 @@ program fepic
       end do
     end do
     call mpi_reduce(qDepoLocal,qDepo,size(qDepo),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-    if(iProc==0)then
-      do i=1,grid%nN
-        rhsPhi(i)=qDepo(i)-QE/EPS0*ne0BR*exp((phi(i)-phi0BR)/kbTeBR)*nVol(i)
-      end do
-    end if
     
     ! solve field
     if(iProc==0)then
-      rhsPhi=merge(rhsPhiDi,rhsPhi,isDirichlet)
-      call phiLinEq%solve(rhsPhi,phi)
+      call phiEq%solve(phi,info=info)
     end if
     call mpi_bcast(phi,size(phi),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
     

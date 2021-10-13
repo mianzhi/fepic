@@ -5,6 +5,7 @@ module modFEPIC
   use modParticle
   use modPICGrid
   use modCondition
+  use modSUNDIALS
   use modSparse
   use modSource
   
@@ -27,7 +28,9 @@ module modFEPIC
   type(PICGrid)::grid !< the grid
   type(condTab)::phibc !< electric field boundary conditions
   type(condTab)::ptclbc !< particle boundary conditions
+  type(NewtonKrylov)::phiEq !< non-linear FEM phi equation
   type(multiFront)::phiLinEq !< linearized FEM phi equation
+  type(multiFront)::negLaPhi !< negative Laplacian of phi (phiLinEq but without electron model part)
   type(pSrc),allocatable::ptclSrc(:) !< particle source
   
   integer::nSp !< number of particle species
@@ -241,5 +244,37 @@ contains
     end do
     close(FID)
   end subroutine
+  
+  !> residual function of the FEM phi equation
+  function phiRes(oldVector,newVector,dat)
+    use iso_c_binding
+    use ieee_arithmetic
+    type(C_PTR),value::oldVector !< old N_Vector
+    type(C_PTR),value::newVector !< new N_Vector
+    type(C_PTR),value::dat !< optional user data object
+    integer(C_INT)::phiRes !< error code
+    double precision,pointer::x(:) !< fortran pointer associated with oldVector
+    double precision,pointer::y(:) !< fortran pointer associated with newVector
+    double precision,allocatable,save::tmp(:)
+    
+    call associateVector(oldVector,x)
+    call associateVector(newVector,y)
+    
+    if(.not.allocated(tmp)) allocate(tmp(grid%nN))
+    
+    ! update rhsPhi to include electron model
+    do i=1,grid%nN
+      rhsPhi(i)=qDepo(i)-QE/EPS0*ne0BR*exp((x(i)-phi0BR)/kbTeBR)*nVol(i)
+    end do
+    rhsPhi=merge(rhsPhiDi,rhsPhi,isDirichlet)
+    
+    ! construct residual vector
+    call negLaPhi%mulVec(x,y)
+    y(1:grid%nN)=y(1:grid%nN)-rhsPhi(1:grid%nN)
+    
+    phiRes=merge(1,0,any(ieee_is_nan(y).or.(.not.ieee_is_finite(y))))
+    if(c_associated(dat))then
+    end if
+  end function
   
 end module
