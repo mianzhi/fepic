@@ -18,9 +18,9 @@ program fepic
   
   ! initial FEM setup at process 0
   if(iProc==0)then
-    call phiEq%init(grid%nN,phiRes)!,pSet=phiPSet,pSol=phiPSol)
-    call phiLinEq%init(grid%nN,size(grid%iNE,1)**2*grid%nE)
-    call negLaPhi%init(grid%nN,size(grid%iNE,1)**2*grid%nE)
+    call phiEq%init(grid%nN,phiRes,pSet=phiPSet,pSol=phiPSol)
+    call phiLinEq%init(grid%nN,size(grid%iNE,1)**2*grid%nE,PHI_PREC_LFILL)
+    call negLaPhi%init(grid%nN,size(grid%iNE,1)**2*grid%nE,PHI_PREC_LFILL)
     call findLaplacian(grid,negLaPhi,isDirichlet)
     call findVolSrc(grid,nVol)
   end if

@@ -22,6 +22,8 @@ module modFEPIC
   
   integer,parameter::BC_PTCL_DEFAULT=0 !< default particle BC: removed upon impact
   
+  integer,parameter::PHI_PREC_LFILL=100 !< phi equation ILU preconditioning fill limit
+  
   integer::iProc,nProc,ierr !< mpi variables
   
   type(ptcls),allocatable::p(:) !< particles of each species
@@ -29,8 +31,8 @@ module modFEPIC
   type(condTab)::phibc !< electric field boundary conditions
   type(condTab)::ptclbc !< particle boundary conditions
   type(NewtonKrylov)::phiEq !< non-linear FEM phi equation
-  type(multiFront)::phiLinEq !< linearized FEM phi equation
-  type(multiFront)::negLaPhi !< negative Laplacian of phi (phiLinEq but without electron model part)
+  type(ILU)::phiLinEq !< linearized FEM phi equation
+  type(ILU)::negLaPhi !< negative Laplacian of phi (phiLinEq but without electron model part)
   type(pSrc),allocatable::ptclSrc(:) !< particle source
   
   integer::nSp !< number of particle species
@@ -275,6 +277,67 @@ contains
     phiRes=merge(1,0,any(ieee_is_nan(y).or.(.not.ieee_is_finite(y))))
     if(c_associated(dat))then
     end if
+  end function
+  
+  !> phi preconditioning matrix setup/factor
+  function phiPSet(c_x,c_xScale,c_f,c_fScale,dat)
+    use iso_c_binding
+    type(C_PTR),value::c_x,c_xScale,c_f,c_fScale,dat
+    integer(C_INT)::phiPSet
+    double precision,pointer::x(:),xScale(:),f(:),fScale(:)
+    type(C_PTR)::foo
+    double precision,parameter::DROPTOL=1e-6
+    logical,save::isFirst=.true.
+    double precision,allocatable::dEm_dPhi(:) !< d (electron model term) / d phi
+    
+    call associateVector(c_x,x)
+    call associateVector(c_xScale,xScale)
+    call associateVector(c_f,f)
+    call associateVector(c_fScale,fScale)
+    
+    if(.not.allocated(dEm_dPhi)) allocate(dEm_dPhi(grid%nN))
+    
+    if(isFirst)then
+      ! construct preconditioning matrix
+      call phiLinEq%setCSR(negLaPhi%iA,negLaPhi%jA,negLaPhi%A)
+      forall(i=1:grid%nN)
+        dEm_dPhi(i)=merge(0d0,QE/EPS0*ne0BR/kbTeBR*exp((x(i)-phi0BR)/kbTeBR)*nVol(i),isDirichlet(i))
+      end forall
+      call phiLinEq%addDiag(dEm_dPhi)
+      ! factorize preconditioning matrix
+      call phiLinEq%fact(DROPTOL)
+      isFirst=.false.
+    end if
+    
+    phiPSet=0
+    foo=dat
+  end function
+  
+  !> phi preconditioning problem solving
+  function phiPSol(c_x,c_xScale,c_f,c_fScale,c_v,dat)
+    use iso_c_binding
+    type(C_PTR),value::c_x,c_xScale,c_f,c_fScale,c_v,dat
+    integer(C_INT)::phiPSol
+    double precision,pointer::x(:),xScale(:),f(:),v(:),fScale(:)
+    type(C_PTR)::foo
+    double precision,allocatable,save::tmp1(:),tmp2(:)
+    
+    call associateVector(c_x,x)
+    call associateVector(c_xScale,xScale)
+    call associateVector(c_f,f)
+    call associateVector(c_fScale,fScale)
+    call associateVector(c_v,v)
+    
+    if(.not.allocated(tmp1)) allocate(tmp1(grid%nN))
+    if(.not.allocated(tmp2)) allocate(tmp2(grid%nN))
+    
+    ! find x increment from f increment v and save back to v
+    tmp1(1:grid%nN)=v(1:grid%nN)
+    call phiLinEq%solve(tmp1,tmp2)
+    v(1:grid%nN)=tmp2(1:grid%nN)
+    
+    phiPsol=0
+    foo=dat
   end function
   
 end module
