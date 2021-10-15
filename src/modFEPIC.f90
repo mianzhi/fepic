@@ -22,7 +22,7 @@ module modFEPIC
   
   integer,parameter::BC_PTCL_DEFAULT=0 !< default particle BC: removed upon impact
   
-  integer,parameter::PHI_PREC_LFILL=100 !< phi equation ILU preconditioning fill limit
+  integer,parameter::PHI_PREC_LFILL=50 !< phi equation ILU preconditioning fill limit
   
   integer::iProc,nProc,ierr !< mpi variables
   
@@ -287,7 +287,6 @@ contains
     double precision,pointer::x(:),xScale(:),f(:),fScale(:)
     type(C_PTR)::foo
     double precision,parameter::DROPTOL=1e-6
-    logical,save::isFirst=.true.
     double precision,allocatable::dEm_dPhi(:) !< d (electron model term) / d phi
     
     call associateVector(c_x,x)
@@ -297,17 +296,14 @@ contains
     
     if(.not.allocated(dEm_dPhi)) allocate(dEm_dPhi(grid%nN))
     
-    if(isFirst)then
-      ! construct preconditioning matrix
-      call phiLinEq%setCSR(negLaPhi%iA,negLaPhi%jA,negLaPhi%A)
-      forall(i=1:grid%nN)
-        dEm_dPhi(i)=merge(0d0,QE/EPS0*ne0BR/kbTeBR*exp((x(i)-phi0BR)/kbTeBR)*nVol(i),isDirichlet(i))
-      end forall
-      call phiLinEq%addDiag(dEm_dPhi)
-      ! factorize preconditioning matrix
-      call phiLinEq%fact(DROPTOL)
-      isFirst=.false.
-    end if
+    ! construct preconditioning matrix
+    call phiLinEq%setCSR(negLaPhi%iA,negLaPhi%jA,negLaPhi%A)
+    forall(i=1:grid%nN)
+      dEm_dPhi(i)=merge(0d0,QE/EPS0*ne0BR/kbTeBR*exp((x(i)-phi0BR)/kbTeBR)*nVol(i),isDirichlet(i))
+    end forall
+    call phiLinEq%addDiag(dEm_dPhi)
+    ! factorize preconditioning matrix
+    call phiLinEq%fact(DROPTOL)
     
     phiPSet=0
     foo=dat

@@ -34,6 +34,7 @@ program fepic
   if(iProc==0)then
     phi(:)=rhsPhiDi(:) ! initial guess of phi
     call phiEq%solve(phi,info=info)
+    call phiEq%setLazyPset() ! reuse preconditioner between solves
   end if
   call mpi_bcast(phi,size(phi),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   
