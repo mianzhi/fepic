@@ -234,6 +234,9 @@ contains
     character(*),intent(in)::fName
     integer,parameter::FID=10
     character(20)::tmpStr
+    double precision,allocatable::tmp1(:)
+    
+    if(.not.allocated(tmp1)) allocate(tmp1(grid%nE))
     
     open(FID,file=trim(fName),action='write')
     call writeVTK(FID,grid)
@@ -244,6 +247,12 @@ contains
       write(tmpStr,*)i
       call writeVTK(FID,'den'//trim(adjustl(tmpStr)),den(:,i))
     end do
+    call writeVTK(FID,grid,E_DATA)
+    call writeVTK(FID,'geoID',dble(grid%gid))
+    forall(i=1:grid%nE)
+      tmp1(i)=merge(0d0,1d0,i<=grid%nC) ! 0 for cell, 1 for facet
+    end forall
+    call writeVTK(FID,'geoType',tmp1)
     close(FID)
   end subroutine
   

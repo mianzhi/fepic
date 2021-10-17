@@ -72,13 +72,15 @@ program fepic
     t=t+dt
     
     ! write visualization
-    call preOut()
-    if(iProc==0.and.t+tiny(1d0)>=tOutNext)then
-      iOut=iOut+1
-      write(tmpStr,*)iOut
-      write(*,'(a)')'[i] writing: rst_'//trim(adjustl(tmpStr))//'.vtk'
-      call writeState('rst_'//trim(adjustl(tmpStr))//'.vtk')
-      tOutNext=tOutNext+dtOut
+    if(t+tiny(1d0)>=tOutNext)then
+      call preOut()
+      if(iProc==0)then
+        iOut=iOut+1
+        write(tmpStr,*)iOut
+        write(*,'(a)')'[i] writing: rst_'//trim(adjustl(tmpStr))//'.vtk'
+        call writeState('rst_'//trim(adjustl(tmpStr))//'.vtk')
+        tOutNext=tOutNext+dtOut
+      end if
     end if
     
   end do
