@@ -27,7 +27,6 @@ program fepic
   call mpi_bcast(nVol,size(nVol),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
   
   ! initial particle loading and deposition
-  qDepoLocal(:)=0d0
   call mpi_reduce(qDepoLocal,qDepo,size(qDepo),MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
   
   ! solve field at process 0
@@ -70,15 +69,19 @@ program fepic
     call mpi_bcast(phi,size(phi),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
     
     t=t+dt
+    nAvgOut=nAvgOut+1
     
     ! write visualization
-    call preOut()
-    if(iProc==0.and.t+tiny(1d0)>=tOutNext)then
+    if(t>=tOutNext)then
+      call preOut()
       iOut=iOut+1
-      write(tmpStr,*)iOut
-      write(*,'(a)')'[i] writing: rst_'//trim(adjustl(tmpStr))//'.vtk'
-      call writeState('rst_'//trim(adjustl(tmpStr))//'.vtk')
+      if(iProc==0)then
+        write(tmpStr,*)iOut
+        write(*,'(a)')'[i] writing: rst_'//trim(adjustl(tmpStr))//'.vtk'
+        call writeState('rst_'//trim(adjustl(tmpStr))//'.vtk')
+      end if
       tOutNext=tOutNext+dtOut
+      nAvgOut=0
     end if
     
   end do

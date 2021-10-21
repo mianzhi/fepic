@@ -45,6 +45,8 @@ module modFEPIC
   double precision,allocatable::qDepo(:) !< discretized ionDensity/EPS0, reduced version [C]
   double precision,allocatable::den(:,:) !< species density [m^-3]
   double precision,allocatable::denLocal(:,:) !< species density, local version [m^-3]
+  double precision,allocatable::wallIDen(:) !< wall hit current density [A/m^2]
+  double precision,allocatable::wallHitDenLocal(:) !< wall hit charge density, local version [C/m^2]
   double precision,allocatable::nVol(:) !< FEM nodal volume
   integer,allocatable::iPhiBC(:) !< indexes of electric field boundary conditions
   integer,allocatable::iPtclBC(:) !< indexes of particle boundary conditions
@@ -57,6 +59,7 @@ module modFEPIC
   double precision::tOutNext !< time to write the next output [s]
   double precision::dtOut !< interval to write output [s]
   integer::iOut !< output index
+  integer::nAvgOut !< number of time steps for averaged output
   
   ! Boltzmann relationship electron model parameters
   double precision::ne0BR !< reference electron density [m^-3]
@@ -93,7 +96,7 @@ contains
       end do
     close(FID)
     
-    ! work space and initial state
+    ! work space
     allocate(phi(grid%nN))
     allocate(rhsPhi(grid%nN))
     allocate(rhsPhiDi(grid%nN))
@@ -101,6 +104,8 @@ contains
     allocate(qDepo(grid%nN))
     allocate(den(grid%nN,size(p)))
     allocate(denLocal(grid%nN,size(p)))
+    allocate(wallIDen(grid%nE))
+    allocate(wallHitDenLocal(grid%nE))
     allocate(nVol(grid%nN))
     allocate(isDirichlet(grid%nN))
     allocate(ef(3,grid%nN))
@@ -157,14 +162,18 @@ contains
     t=0d0
     iOut=0
     tOutNext=dtOut
+    nAvgOut=0
     
   end subroutine
   
   !> step particles
   subroutine stepPtcls()
     use modPush
+    use modPICGrid
+    use modPolyGrid
+    use modGeometry
     integer::f,info
-    double precision::h
+    double precision::h,a
     integer::n0(size(p))
     logical,allocatable::toBeRemoved(:)
     
@@ -185,6 +194,15 @@ contains
           call push(grid,p(j),i,h,phi,f,LF_REWIND,info)
         end if
         if(info==PUSH_IMPACT)then ! TODO add other particle BCs
+          select case(grid%sE(f))
+          case(TRI)
+            a=a3p(grid%pN(:,grid%iNE(1:3,f)))
+          case default
+            a=0d0
+          end select
+          if(a>0d0)then
+            wallHitDenLocal(f)=wallHitDenLocal(f)+p(j)%w(i)*p(j)%q/a
+          end if
           toBeRemoved(i)=.true.
         end if
         if(info==PUSH_LOST)then
@@ -226,6 +244,16 @@ contains
       call findNodalGrad(grid,phi,nVol,ef)
       ef(:,:)=-ef(:,:)
     end if
+    
+    ! wall hit current density
+    call mpi_reduce(wallHitDenLocal,wallIDen,size(wallIDen),MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+    &               MPI_COMM_WORLD,ierr)
+    if(nAvgOut>0)then
+      wallIDen(:)=wallIDen(:)/dt/nAvgOut
+    else
+      wallIDen(:)=0d0
+    end if
+    wallHitDenLocal(:)=0d0
   end subroutine
   
   !> write the state to post-processing file
@@ -253,6 +281,7 @@ contains
       tmp1(i)=merge(0d0,1d0,i<=grid%nC) ! 0 for cell, 1 for facet
     end forall
     call writeVTK(FID,'geoType',tmp1)
+    call writeVTK(FID,'wallIDen',wallIDen)
     close(FID)
   end subroutine
   
