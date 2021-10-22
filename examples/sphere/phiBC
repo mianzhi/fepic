@@ -1,0 +1,12 @@
+2                  # number of conditions
+1                  # maximum number of parameters per condition
+
+4                  # geometric group identifier
+1                  # Dirichlet with given electric potential
+1                  # number of real parameters
+0.0                # real parameter: electric potential [V]
+
+7                  # geometric group identifier
+1                  # Dirichlet with given electric potential
+1                  # number of real parameters
+-100.0             # real parameter: electric potential [V]

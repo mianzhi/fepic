@@ -1,0 +1,17 @@
+2                  # number of particle sources
+
+1                  # type of source: surface flux
+1                  # species: O+
+1e3                # target specific weight
+4                  # geometric group identifier
+0.0 0.0 7000.0     # drifting velocity [m/s]
+5.6e15             # flux in drifting direction [1/m^2/s]
+0.1                # temperture [eV]
+
+1                  # type of source: surface flux
+2                  # species: O++
+2e2                # target specific weight
+4                  # geometric group identifier
+0.0 0.0 7000.0     # drifting velocity [m/s]
+0.7e15             # flux in drifting direction [1/m^2/s]
+0.1                # temperture [eV]

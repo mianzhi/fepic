@@ -1,0 +1,4 @@
+0                  # number of conditions
+0                  # maximum number of parameters per condition
+
+# default particle BC: particle to be removed at impact

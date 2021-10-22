@@ -1,0 +1,7 @@
+2                  # number of particle species
+
+16.0               # mass of O+ [AMU]
+1.0                # charge of O+ [QE]
+
+16.0               # mass of O++ [AMU]
+2.0                # charge of O++ [QE]
