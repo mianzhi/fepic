@@ -94,9 +94,9 @@ contains
             case default
               x(:)=0d0
             end select
-            call random_number(r1)
             vThermal=sqrt(2*this%temp*EV2J/p(this%iSp)%m)
             u=this%u+MaxwellianSpeed(vThermal)*randomDirection()
+            call random_number(r1)
             x=x+r1*dt*u
             call match(grid,x,iC,xx,this%mask)
             if(iC>0)then
