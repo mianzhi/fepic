@@ -58,7 +58,6 @@ contains
     type(PICGrid),intent(in)::grid !< the grid
     double precision,intent(in)::dt !< duration [s]
     integer,intent(in)::nProc !< number of processes (new particles equally split among processes)
-    double precision,parameter::INTO_DOMAIN=1d-6 !< to keep new particles inside the domain
     double precision::x(DIMS),u(DIMS),w,total,a,norm(DIMS),aa,r1,r2,r3,r4,xx(DIMS),vThermal
     integer::iC
     
@@ -95,9 +94,10 @@ contains
             case default
               x(:)=0d0
             end select
-            x=x-norm(:)*sqrt(aa)*INTO_DOMAIN
+            call random_number(r1)
             vThermal=sqrt(2*this%temp*EV2J/p(this%iSp)%m)
             u=this%u+MaxwellianSpeed(vThermal)*randomDirection()
+            x=x+r1*dt*u
             call match(grid,x,iC,xx,this%mask)
             if(iC>0)then
               call p(this%iSp)%add(x,u,w,iC=iC,xx=xx)

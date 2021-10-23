@@ -77,13 +77,14 @@ contains
     use modUglyFEM
     class(PICGrid),intent(in)::grid !< the grid
     double precision,intent(in)::x(DIMS) !< global location [m]
-    integer,intent(inout)::iC !< initial cell at input, matched cell at output
+    integer,intent(out)::iC !< matched cell
     double precision,intent(inout),optional::xx(DIMS) !< location at reference cell of iC
     logical,allocatable,intent(inout)::mask(:) !< the mask
     double precision::xxx(DIMS)
     logical::isInside,isFound
     
     isFound=.false.
+    iC=0
     if(.not.allocated(mask))then
       allocate(mask(grid%nC))
       mask(:)=.false.
