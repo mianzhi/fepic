@@ -61,6 +61,7 @@ contains
     double precision::x(DIMS),u(DIMS),w,total,a,norm(DIMS),aa,r1,r2,r3,r4,xx(DIMS),vThermal
     integer::iC
     
+    iC=0
     select case(this%t)
     case(SRC_SURFACE_FLUX)
       do i=grid%nC+1,grid%nE
@@ -82,6 +83,11 @@ contains
           w=total/n
           j=1
           do while(j<=n)
+            vThermal=sqrt(2*this%temp*EV2J/p(this%iSp)%m)
+            u=this%u+MaxwellianSpeed(vThermal)*randomDirection()
+            if(dot_product(u,-norm)<0)then
+              cycle
+            end if
             select case(grid%sE(i))
             case(TRI)
               call random_number(r1)
@@ -94,8 +100,6 @@ contains
             case default
               x(:)=0d0
             end select
-            vThermal=sqrt(2*this%temp*EV2J/p(this%iSp)%m)
-            u=this%u+MaxwellianSpeed(vThermal)*randomDirection()
             call random_number(r1)
             x=x+r1*dt*u
             call match(grid,x,iC,xx,this%mask)
@@ -129,9 +133,10 @@ contains
   end function
   
   !> return a random direction unit vector in 3-D
-  function randomDirection()
+  function randomDirection(vec)
     double precision::randomDirection(DIMS) !< the unit vector result
-    double precision::theta,r,a
+    double precision,optional,intent(in)::vec(DIMS) !< limit to the half dome selected by vec
+    double precision::theta,r,a,d
     
     call random_number(theta)
     theta=theta*2*PI
@@ -139,6 +144,12 @@ contains
     r=-1d0+r*2
     a=sqrt(1d0-r**2)
     randomDirection(:)=[cos(theta)*a,sin(theta)*a,r]
+    if(present(vec))then
+      d=dot_product(vec,randomDirection)
+      if(d<0)then
+        randomDirection(:)=randomDirection(:)-2*d*vec(:)/dot_product(vec,vec)
+      end if
+    end if
   end function
   
   
